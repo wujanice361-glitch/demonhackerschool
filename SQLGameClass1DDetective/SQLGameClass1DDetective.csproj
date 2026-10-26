@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Cases\Day01.sql" />
+    <None Remove="Db\00_setup.sql" />
+    <None Remove="Db\Day01.sql" />
+  </ItemGroup>
+
+<ItemGroup>
+  <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+  <EmbeddedResource Include="Db\*.sql" />
+  <EmbeddedResource Include="Cases\*.sql" />
+</ItemGroup>
+
+</Project>

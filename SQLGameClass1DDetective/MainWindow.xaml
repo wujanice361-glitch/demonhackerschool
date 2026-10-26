@@ -1,0 +1,170 @@
+﻿<Window x:Class="SQLGameClass1DDetective.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SQL捜査ワークスペース"
+        Width="1280" Height="780" MinWidth="1000" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBrush}"
+        Foreground="{StaticResource TextBrush}"
+        FontFamily="Yu Gothic UI, Meiryo UI" FontSize="14"
+        Loaded="Window_Loaded">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="360" MinWidth="280"/>
+            <ColumnDefinition Width="6"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ================= 左: 事件の説明・目的・提出 ================= -->
+        <Border Grid.Column="0" Background="{StaticResource PanelBrush}">
+            <Grid Margin="16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 事件タイトル -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                    <TextBlock x:Name="DayText" Text="DAY 1"
+                               Foreground="{StaticResource AccentBrush}"
+                               FontWeight="Bold" FontSize="12"/>
+                    <TextBlock x:Name="CaseTitle" Text="事件タイトル"
+                               FontSize="22" FontWeight="Bold" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <!-- 状況・目的 -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,8,0">
+                        <TextBlock Text="状況" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock x:Name="SituationText" TextWrapping="Wrap" LineHeight="22"/>
+
+                        <TextBlock Text="目的" Style="{StaticResource SectionHeader}" Margin="0,18,0,6"/>
+                        <TextBlock x:Name="ObjectiveText" TextWrapping="Wrap" LineHeight="22"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 提出 -->
+                <Border Grid.Row="2" Margin="0,12,0,0" Padding="0,12,0,0"
+                        BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0">
+                    <StackPanel>
+                        <TextBlock Text="提出" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock x:Name="SubmitHint" Text="調べて分かった結論を入力してください"
+               Foreground="{StaticResource SubTextBrush}" FontSize="12" Margin="0,0,0,6"/>
+                        <TextBox x:Name="AnswerBox" Height="64" TextWrapping="Wrap"
+             VerticalScrollBarVisibility="Auto"/>
+
+                        <Button x:Name="SubmitButton" Content="この内容で提出する"
+            Style="{StaticResource AccentButton}"
+            Margin="0,10,0,0" Click="SubmitButton_Click"/>
+                        <TextBlock x:Name="SubmitResult" Margin="0,8,0,0" TextWrapping="Wrap"
+               Foreground="{StaticResource SubTextBrush}"/>
+
+                        <!-- クリア後だけ表示 -->
+                        <StackPanel x:Name="ClearedPanel" Visibility="Collapsed" Margin="0,10,0,0">
+                            <TextBlock Text="✔ 事件解決" Foreground="{StaticResource AccentBrush}"
+                   FontWeight="Bold" Margin="0,0,0,8"/>
+                            <Button x:Name="NextButton" Content="次の問題へ進む ▶"
+                Style="{StaticResource AccentButton}" Click="NextButton_Click"/>
+                            <Button x:Name="RetryButton" Content="この問題をやり直す" Margin="0,8,0,0"
+                Click="RetryButton_Click"/>
+                            <Button x:Name="ReviewButton" Content="解説を読み返す" Margin="0,8,0,0"
+                Click="ReviewButton_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch"
+                      Background="{StaticResource BgBrush}"/>
+
+        <!-- ================= 右: SQLワークスペース ================= -->
+        <Grid Grid.Column="2" Margin="0,12,12,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="180" MinHeight="90"/>
+                <RowDefinition Height="6"/>
+                <RowDefinition Height="*" MinHeight="100"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- ツールバー -->
+            <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="False">
+                <Button x:Name="RunButton" DockPanel.Dock="Left"
+                        Content="▶ 実行  (Ctrl+Enter)"
+                        Style="{StaticResource AccentButton}" Click="RunButton_Click"/>
+                <Button DockPanel.Dock="Left" Content="クリア" Margin="8,0,0,0"
+                        Click="ClearButton_Click"/>
+
+                <Button DockPanel.Dock="Right" Content="メニュー" Margin="8,0,0,0"
+                        Click="MenuButton_Click"/>
+                <Button DockPanel.Dock="Right" Content="メモ帳" Margin="8,0,0,0"
+                        Click="NotepadButton_Click"/>
+                <Button x:Name="SchemaButton" DockPanel.Dock="Right" Content="テーブル構造" Margin="8,0,0,0"
+        Style="{StaticResource OutlineAccentButton}" Click="SchemaButton_Click"/>
+                <Popup x:Name="SchemaTip" Grid.Row="0" PlacementTarget="{Binding ElementName=SchemaButton}"
+       Placement="Bottom" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade">
+                    <Border Background="{StaticResource AccentBrush}" CornerRadius="6" Padding="14,10"
+            Margin="0,6,0,0" MaxWidth="280">
+                        <StackPanel>
+                            <TextBlock Text="まずここをチェック！" FontWeight="Bold" Foreground="#1E1F26"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="#1E1F26" Margin="0,4,0,8"
+                       Text="ここから、テーブルの構造（どんな表があって、どんな列があるか）を見られます。捜査の前に確認しましょう。"/>
+                            <Button Content="わかった" Click="SchemaTipClose_Click" Padding="10,3"
+                    HorizontalAlignment="Right"/>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+                <TextBlock x:Name="TimerText" DockPanel.Dock="Right"
+                           VerticalAlignment="Center" Margin="0,0,16,0"
+                           Foreground="{StaticResource SubTextBrush}"
+                           FontFamily="{StaticResource MonoFont}"/>
+            </DockPanel>
+
+            <!-- SQL入力 -->
+            <TextBox x:Name="SqlBox" Grid.Row="1"
+                     FontFamily="{StaticResource MonoFont}" FontSize="15"
+                     AcceptsReturn="True" AcceptsTab="True"
+                     TextWrapping="NoWrap"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Auto"
+                     PreviewKeyDown="SqlBox_PreviewKeyDown"/>
+
+            <GridSplitter Grid.Row="2" Height="6" HorizontalAlignment="Stretch"
+                          Background="{StaticResource BgBrush}"/>
+
+            <!-- 結果 -->
+            <DataGrid x:Name="ResultGrid" Grid.Row="3"
+                      IsReadOnly="True" AutoGenerateColumns="True"
+                      CanUserAddRows="False" CanUserDeleteRows="False"
+                      SelectionUnit="CellOrRowHeader" SelectionMode="Extended"
+                      ClipboardCopyMode="ExcludeHeader"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="{StaticResource LineBrush}"
+                      Background="{StaticResource EditorBrush}"
+                      RowBackground="#1B1C23" AlternatingRowBackground="#20222B"
+                      BorderBrush="{StaticResource LineBrush}"
+                      AutoGeneratingColumn="ResultGrid_AutoGeneratingColumn"/>
+
+            <Border x:Name="ErrorPanel" Grid.Row="3" Visibility="Collapsed"
+        Background="{StaticResource EditorBrush}"
+        BorderBrush="#7A3B3B" BorderThickness="1" Padding="16">
+                <StackPanel>
+                    <TextBlock x:Name="ErrorTitle" FontSize="16" FontWeight="Bold"
+                   Foreground="#FF8A80"/>
+                    <TextBlock x:Name="ErrorDetail" Margin="0,8,0,0" TextWrapping="Wrap"
+                   FontFamily="{StaticResource MonoFont}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ステータスバー -->
+            <Border Grid.Row="4" Margin="0,8,0,0">
+                <TextBlock x:Name="StatusText" Text="SQLを入力して実行してください。"
+                           Foreground="{StaticResource SubTextBrush}" TextWrapping="Wrap"/>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
