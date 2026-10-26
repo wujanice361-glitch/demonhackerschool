@@ -70,7 +70,14 @@ public partial class MenuWindow : Window
         var r = MessageBox.Show(this, "ゲームを終了しますか？", "確認",
                                 MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (r == MessageBoxResult.Yes)
-            Application.Current.MainWindow?.Close(); // MainWindow.OnClosing で子ウィンドウも閉じられる
+        {
+            Application.Current.MainWindow?.Close();
+        }
+        else
+        {
+            Owner?.Activate();
+            Activate();
+        }
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -78,6 +85,7 @@ public partial class MenuWindow : Window
         if (!AllowClose)
         {
             e.Cancel = true;
+            Owner?.Activate();   // 先にメイン画面を前面にする
             Hide();
         }
         base.OnClosing(e);

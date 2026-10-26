@@ -1,7 +1,17 @@
 -- 起動のたびに実行される。何度実行しても安全なように、すべて「なければ作る」形にしている。
 
 -- ===== データベース =====
-IF DB_ID('SchoolCase') IS NULL CREATE DATABASE SchoolCase;
+-- 事件データのDBは日本語の照合順序にする。
+-- （N なしの日本語、たとえば WHERE 役職 = '見習い' でも検索できるようにするため）
+-- 以前の照合順序で作られていた場合は、作り直す（事件データは起動時に入れ直すので消えてよい）
+IF DB_ID('SchoolCase') IS NOT NULL
+   AND CONVERT(sysname, DATABASEPROPERTYEX('SchoolCase', 'Collation')) <> N'Japanese_CI_AS'
+BEGIN
+    ALTER DATABASE SchoolCase SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE SchoolCase;
+END
+GO
+IF DB_ID('SchoolCase') IS NULL CREATE DATABASE SchoolCase COLLATE Japanese_CI_AS;
 GO
 IF DB_ID('SchoolCaseAnswer') IS NULL CREATE DATABASE SchoolCaseAnswer;
 GO

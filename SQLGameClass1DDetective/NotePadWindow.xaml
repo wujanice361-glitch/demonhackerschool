@@ -1,6 +1,7 @@
 ﻿<Window x:Class="SQLGameClass1DDetective.NotepadWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:SQLGameClass1DDetective"
         Title="メモ帳" Width="420" Height="480" MinWidth="280" MinHeight="240"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{StaticResource BgBrush}"
@@ -16,12 +17,11 @@
         </DockPanel>
 
         <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0"
-                   Text="メモは自動で保存されます。"
+                   Text="メイン画面の「メモ」タブと同じ内容です。自動で保存されます。"
                    Foreground="{StaticResource SubTextBrush}" FontSize="12"/>
 
-        <TextBox x:Name="MemoBox"
-                 AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap"
-                 VerticalScrollBarVisibility="Auto"
-                 FontSize="15"/>
+        <TextBox AcceptsReturn="True" TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto" FontSize="15"
+                 Text="{Binding Source={x:Static local:MemoStore.Instance}, Path=Text, UpdateSourceTrigger=PropertyChanged}"/>
     </DockPanel>
 </Window>

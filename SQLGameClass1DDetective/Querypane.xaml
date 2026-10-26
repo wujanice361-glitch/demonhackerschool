@@ -1,0 +1,63 @@
+﻿<UserControl x:Class="SQLGameClass1DDetective.QueryPane"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Foreground="{StaticResource TextBrush}">
+
+    <Grid Margin="0,10,0,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="170" MinHeight="90"/>
+            <RowDefinition Height="6"/>
+            <RowDefinition Height="*" MinHeight="100"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ツールバー -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button x:Name="RunButton" Content="▶ 実行  (Ctrl+Enter)"
+                    Style="{StaticResource AccentButton}" Click="RunButton_Click"/>
+            <Button Content="クリア" Margin="8,0,0,0" Click="ClearButton_Click"/>
+        </StackPanel>
+
+        <!-- SQL入力 -->
+        <TextBox x:Name="SqlBox" Grid.Row="1"
+                 FontFamily="{StaticResource MonoFont}" FontSize="15"
+                 AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
+                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                 PreviewKeyDown="SqlBox_PreviewKeyDown"/>
+
+        <GridSplitter Grid.Row="2" Height="6" HorizontalAlignment="Stretch"
+                      Background="{StaticResource BgBrush}"/>
+
+        <!-- 結果とエラー（同じ場所に重ねて、どちらかを表示） -->
+        <Grid Grid.Row="3">
+            <DataGrid x:Name="ResultGrid"
+                      IsReadOnly="True" AutoGenerateColumns="True"
+                      CanUserAddRows="False" CanUserDeleteRows="False"
+                      SelectionUnit="CellOrRowHeader" SelectionMode="Extended"
+                      ClipboardCopyMode="ExcludeHeader"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="{StaticResource LineBrush}"
+                      Background="{StaticResource EditorBrush}"
+                      RowBackground="#1B1C23" AlternatingRowBackground="#20222B"
+                      BorderBrush="{StaticResource LineBrush}"
+                      AutoGeneratingColumn="ResultGrid_AutoGeneratingColumn"/>
+
+            <Border x:Name="ErrorPanel" Visibility="Collapsed"
+                    Background="{StaticResource EditorBrush}"
+                    BorderBrush="#7A3B3B" BorderThickness="1" Padding="16">
+                <StackPanel>
+                    <TextBlock x:Name="ErrorTitle" FontSize="16" FontWeight="Bold"
+                               Foreground="#FF8A80"/>
+                    <TextBlock x:Name="ErrorDetail" Margin="0,8,0,0" TextWrapping="Wrap"
+                               FontFamily="{StaticResource MonoFont}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ステータス -->
+        <TextBlock x:Name="StatusText" Grid.Row="4" Margin="0,8,0,0"
+                   Text="SQLを入力して実行してください。"
+                   Foreground="{StaticResource SubTextBrush}" TextWrapping="Wrap"/>
+    </Grid>
+</UserControl>

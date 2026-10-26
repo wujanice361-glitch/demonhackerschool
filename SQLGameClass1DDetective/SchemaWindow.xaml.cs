@@ -54,6 +54,7 @@ public partial class SchemaWindow : Window
         if (!AllowClose)
         {
             e.Cancel = true;
+            Owner?.Activate();   // 先にメイン画面を前面にする
             Hide();
         }
         base.OnClosing(e);

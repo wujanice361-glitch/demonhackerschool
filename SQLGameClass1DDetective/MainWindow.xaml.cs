@@ -1,18 +1,17 @@
-﻿using SQLGameClass1DDetective;
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Threading;
 
 namespace SQLGameClass1DDetective;
 
 public partial class MainWindow : Window
 {
-    private const int MaxRows = 1000; // QueryRunner の MaxRows と合わせる
+    private const int QueryTabCount = 5;
+    private readonly List<QueryPane> _panes = new();
 
     // 子ウィンドウ（Owner は Window が表示された後でないと設定できないので Loaded で作る）
     private SchemaWindow _schema = null!;
@@ -20,24 +19,34 @@ public partial class MainWindow : Window
     private MenuWindow _menu = null!;
 
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private DateTime _startedAt = DateTime.Now;
 
     // null = 時間制限なし（経過時間だけ表示）。制限を付けるなら TimeSpan.FromMinutes(15) など。
     private TimeSpan? _timeLimit = null;
 
     private int _day = 1;
-    private DateTime _startedAt = DateTime.Now;
     private int _attempts;
-
-    //クリア後用のフィールド
-    private bool _cleared;
     private TimeSpan _clearedElapsed;
+    private bool _schemaTipShown;
 
     public MainWindow()
     {
         InitializeComponent();
+        WindowHelper.FitToScreen(this);
+
+        // クエリのタブを5つ作る（SQL入力と結果が、タブごとに独立している）
+        for (int i = 1; i <= QueryTabCount; i++)
+        {
+            var pane = new QueryPane();
+            _panes.Add(pane);
+            QueryTabs.Items.Add(new TabItem { Header = $"クエリ {i}", Content = pane });
+        }
+
         _timer.Tick += (_, _) => UpdateTimer();
         _timer.Start();
         UpdateTimer();
+
+        // 吹き出しが他のアプリの前面に残らないようにする
         Deactivated += (_, _) => SchemaTip.IsOpen = false;
         LocationChanged += (_, _) => SchemaTip.IsOpen = false;
     }
@@ -51,9 +60,9 @@ public partial class MainWindow : Window
         await LoadDayAsync(ProgressStore.GetStartDay());
     }
 
+    // ===== 日の読み込み（事件データの入れ替え・画面の初期化） =====
     private async Task LoadDayAsync(int day)
     {
-        StatusText.Text = "事件ファイルを準備しています...";
         try
         {
             await Task.Run(() => DbInitializer.LoadCase(day));
@@ -66,11 +75,11 @@ public partial class MainWindow : Window
         }
 
         _day = day;
-        SetClearedState(false);
         _attempts = 0;
         _startedAt = DateTime.Now;
         _timer.Start();
         UpdateTimer();
+        SetClearedState(false);
 
         var info = CaseCatalog.Get(day);
         DayText.Text = $"DAY {day}";
@@ -81,15 +90,11 @@ public partial class MainWindow : Window
 
         AnswerBox.Clear();
         SubmitResult.Text = "";
-        SqlBox.Clear();
-        ResultGrid.ItemsSource = null;
-        ErrorPanel.Visibility = Visibility.Collapsed;
-        ResultGrid.Visibility = Visibility.Visible;
-        StatusText.Text = "SQLを入力して実行してください。";
+        foreach (var pane in _panes) pane.Reset();
+        QueryTabs.SelectedIndex = 0;
 
         await _schema.LoadAsync(); // 日が変わるとテーブルも変わるので、スキーマも読み直す
 
-        //初日のみスキーマのボタンの説明
         if (day == 1 && !_schemaTipShown)
         {
             _schemaTipShown = true;
@@ -97,30 +102,20 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>事件ごとの内容をここで流し込む（仮の文章）。</summary>
-    private void LoadCase()
+    // ===== 子ウィンドウの開閉 =====
+    private static void Toggle(Window w)
     {
-        DayText.Text = "DAY 1";
-        CaseTitle.Text = "（仮）事件タイトル";
-        SituationText.Text =
-            "（仮）ここに事件の状況説明を書きます。\n" +
-            "先生が残した記録から、何が起きたのかを調べてください。";
-        ObjectiveText.Text =
-            "（仮）ここに課題の目的を書きます。\n" +
-            "例: 事件が起きた時間帯に、教室にいた人物を特定する。";
-
-        _menu.SetHints(new[]
+        // 普通に表示されているときだけ隠す
+        if (w.IsVisible && w.WindowState != WindowState.Minimized)
         {
-            "（仮）ヒント1: まずは入退室の記録を見てみよう。",
-            "（仮）ヒント2: 時間帯で絞り込むと候補が減るよ。",
-            "（仮）ヒント3: 別のテーブルと突き合わせてみよう。",
-        });
+            w.Hide();
+            return;
+        }
+
+        if (!w.IsVisible) w.Show();
+        if (w.WindowState == WindowState.Minimized) w.WindowState = WindowState.Normal; // 元の大きさに戻す
+        w.Activate();
     }
-
-    //スキーマボタンの紹介
-    private bool _schemaTipShown;
-
-    private void SchemaTipClose_Click(object sender, RoutedEventArgs e) => SchemaTip.IsOpen = false;
 
     private void SchemaButton_Click(object sender, RoutedEventArgs e)
     {
@@ -128,13 +123,7 @@ public partial class MainWindow : Window
         Toggle(_schema);
     }
 
-    // ===== 子ウィンドウの開閉 =====
-    private static void Toggle(Window w)
-    {
-        if (w.IsVisible) { w.Hide(); }
-        else { w.Show(); w.Activate(); }
-    }
-
+    private void SchemaTipClose_Click(object sender, RoutedEventArgs e) => SchemaTip.IsOpen = false;
     private void NotepadButton_Click(object sender, RoutedEventArgs e) => Toggle(_notepad);
     private void MenuButton_Click(object sender, RoutedEventArgs e) => Toggle(_menu);
 
@@ -143,78 +132,12 @@ public partial class MainWindow : Window
         base.OnClosing(e);
         if (e.Cancel) return;
 
+        MemoStore.Instance.Save();
+
         // 子ウィンドウは通常「閉じる＝隠す」。アプリ終了時だけ本当に閉じられるようにする
         if (_schema != null) _schema.AllowClose = true;
         if (_notepad != null) _notepad.AllowClose = true;
         if (_menu != null) _menu.AllowClose = true;
-    }
-
-    // ===== SQL実行 =====
-    private void RunButton_Click(object sender, RoutedEventArgs e) => _ = RunQueryAsync();
-
-    private void ClearButton_Click(object sender, RoutedEventArgs e)
-    {
-        SqlBox.Clear();
-        SqlBox.Focus();
-    }
-
-    private void SqlBox_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        bool ctrlEnter = e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.Control;
-        if (ctrlEnter || e.Key == Key.F5)
-        {
-            e.Handled = true;
-            _ = RunQueryAsync();
-        }
-    }
-
-    private async Task RunQueryAsync()
-    {
-        var sql = SqlBox.Text;
-        if (string.IsNullOrWhiteSpace(sql))
-        {
-            StatusText.Text = "SQLを入力してください。";
-            return;
-        }
-
-        RunButton.IsEnabled = false;
-        StatusText.Text = "実行中...";
-        var sw = Stopwatch.StartNew();
-
-        try
-        {
-            var result = await Task.Run(() => QueryRunner.Execute(sql));
-
-            if (result.Table is { } table)
-            {
-                ErrorPanel.Visibility = Visibility.Collapsed;
-                ResultGrid.Visibility = Visibility.Visible;
-                ResultGrid.ItemsSource = table.DefaultView;
-
-                var note = table.Rows.Count >= MaxRows ? $"  ※先頭{MaxRows}行のみ表示" : "";
-                StatusText.Text = $"{table.Rows.Count} 行  ({sw.ElapsedMilliseconds} ms){note}";
-            }
-            else
-            {
-                ResultGrid.ItemsSource = null;
-                ResultGrid.Visibility = Visibility.Collapsed;
-                ErrorPanel.Visibility = Visibility.Visible;
-                ErrorTitle.Text = result.ErrorTitle;
-                ErrorDetail.Text = result.ErrorDetail;
-                StatusText.Text = "エラー";
-            }
-        }
-        finally
-        {
-            RunButton.IsEnabled = true;
-        }
-    }
-
-    // 列名の「_」はWPFでアクセスキー扱いされて消えるので、2つにして表示させる
-    private void ResultGrid_AutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
-    {
-        if (e.Column.Header is string h)
-            e.Column.Header = h.Replace("_", "__");
     }
 
     // ===== 提出 =====
@@ -235,7 +158,7 @@ public partial class MainWindow : Window
 
         if (!AnswerChecker.IsCorrect(_day, answer))
         {
-            SubmitResult.Text = $"先生:「うーん、その答えでは説明がつかないな。もう一度、記録を見直してみなさい。」（{_attempts}回目の提出）";
+            SubmitResult.Text = $"教官:「うーん、その答えでは説明がつかないな。もう一度、記録を見直してみなさい。」（{_attempts}回目の提出）";
             return;
         }
 
@@ -244,7 +167,7 @@ public partial class MainWindow : Window
 
     private async Task ShowClearAsync()
     {
-        _timer.Stop();
+        _timer.Stop(); // 時間を止める
         _clearedElapsed = DateTime.Now - _startedAt;
         var hints = _menu.HintsUsed;
 
@@ -272,28 +195,9 @@ public partial class MainWindow : Window
             await GoNextAsync();
     }
 
-    // ===== 経過時間 / 残り時間 =====
-    private void UpdateTimer()
-    {
-        var elapsed = DateTime.Now - _startedAt;
-
-        if (_timeLimit is { } limit)
-        {
-            var rest = limit - elapsed;
-            TimerText.Text = rest > TimeSpan.Zero
-                ? $"残り {(int)rest.TotalMinutes:00}:{rest.Seconds:00}"
-                : "時間切れ";
-        }
-        else
-        {
-            TimerText.Text = $"経過 {(int)elapsed.TotalMinutes:00}:{elapsed.Seconds:00}";
-        }
-    }
-
     // クリア状態の切り替え（提出欄のロックと、ボタンの出し分け）
     private void SetClearedState(bool cleared)
     {
-        _cleared = cleared;
         AnswerBox.IsReadOnly = cleared;
         AnswerBox.Opacity = cleared ? 0.6 : 1.0;
         SubmitButton.Visibility = cleared ? Visibility.Collapsed : Visibility.Visible;
@@ -323,4 +227,22 @@ public partial class MainWindow : Window
     }
 
     private async void ReviewButton_Click(object sender, RoutedEventArgs e) => await ShowClearDialogAsync();
+
+    // ===== 経過時間 / 残り時間 =====
+    private void UpdateTimer()
+    {
+        var elapsed = DateTime.Now - _startedAt;
+
+        if (_timeLimit is { } limit)
+        {
+            var rest = limit - elapsed;
+            TimerText.Text = rest > TimeSpan.Zero
+                ? $"残り {(int)rest.TotalMinutes:00}:{rest.Seconds:00}"
+                : "時間切れ";
+        }
+        else
+        {
+            TimerText.Text = $"経過 {(int)elapsed.TotalMinutes:00}:{elapsed.Seconds:00}";
+        }
+    }
 }
