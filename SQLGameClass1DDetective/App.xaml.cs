@@ -1,5 +1,4 @@
-﻿using SQLGameClass1DDetective;
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -13,7 +12,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // 「準備中」ウィンドウを閉じてもアプリが終了しないようにする
+        // 「準備中」や導入の画面を閉じてもアプリが終了しないようにする
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         var splash = new Window
@@ -37,13 +36,12 @@ public partial class App : Application
         };
         splash.Show();
 
+        int lastCleared;
         try
         {
-            // DB作成と事件データの投入（UIが固まらないよう別スレッドで）
-            await Task.Run(() =>
-            {
-                DbInitializer.EnsureReady();
-            });
+            // DBの作成（事件データは、MainWindow が日ごとに入れる）
+            await Task.Run(() => DbInitializer.EnsureReady());
+            lastCleared = await Task.Run(() => ProgressStore.GetLastClearedDay());
         }
         catch (Exception ex)
         {
@@ -53,10 +51,57 @@ public partial class App : Application
             return;
         }
 
+        splash.Close();
+
+        // 前回の記録（クリア済みの日）があるときだけ、「続きから」か「最初から」かを聞く。
+        // 記録がなければ聞かずに、そのまま始める。
+        GameProfile? fresh = null;
+        if (lastCleared > 0)
+        {
+            var choice = new StartChoiceWindow(lastCleared);
+            choice.ShowDialog();
+            if (choice.Restart)
+                fresh = GameProfile.CreateDefault();
+        }
+
+        if (fresh != null)
+        {
+            // 最初からやり直す: 導入を最初から見せて、最後まで進んだときだけ、リセットを確定する
+            var intro = new IntroWindow(fresh, "ゲームを終了します。（リセットは行われません）");
+            if (intro.ShowDialog() != true)
+            {
+                Shutdown();
+                return;
+            }
+
+            try
+            {
+                await GameReset.CommitAsync(fresh);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("リセットに失敗しました。\n\n" + ex.Message, "エラー",
+                                MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown();
+                return;
+            }
+        }
+        else if (!GameProfile.Current.IsIntroDone)
+        {
+            // 初回（または導入を最後まで終えていない）: 導入を見せる
+            var edit = GameProfile.Current.Clone();
+            var intro = new IntroWindow(edit, "ゲームを終了します。（次に起動したとき、導入は最初から始まります）");
+            if (intro.ShowDialog() != true)
+            {
+                Shutdown(); // 導入の途中でやめたら、終了する。見たことにはならない
+                return;
+            }
+            GameProfile.Replace(edit);
+        }
+
         var main = new MainWindow();
         MainWindow = main;
         ShutdownMode = ShutdownMode.OnMainWindowClose;
         main.Show();
-        splash.Close();
     }
 }

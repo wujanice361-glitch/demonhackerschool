@@ -46,8 +46,12 @@
                             <TextBlock Text="状況" Style="{StaticResource SectionHeader}"/>
                             <TextBlock x:Name="SituationText" TextWrapping="Wrap" LineHeight="22"/>
 
-                            <TextBlock Text="目的" Style="{StaticResource SectionHeader}" Margin="0,18,0,6"/>
-                            <TextBlock x:Name="ObjectiveText" TextWrapping="Wrap" LineHeight="22"/>
+                            <TextBlock Text="教官からの命令" Style="{StaticResource SectionHeader}" Margin="0,18,0,6"/>
+                            <Border BorderBrush="{StaticResource AccentBrush}" BorderThickness="3,0,0,0"
+                                    Padding="12,2,0,2">
+                                <TextBlock x:Name="OrderText" TextWrapping="Wrap" LineHeight="22"
+                                           FontWeight="SemiBold"/>
+                            </Border>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>

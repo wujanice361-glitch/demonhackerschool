@@ -27,6 +27,31 @@ WHEN NOT MATCHED THEN
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>クリアの記録をすべて消す（ゲーム全体のリセット用）。</summary>
+    public static void ResetAll()
+    {
+        using var conn = new SqlConnection(DbConfig.SystemConn);
+        conn.Open();
+        using var cmd = new SqlCommand("DELETE FROM dbo.Progress", conn);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>最後にクリアした日（まだ1つもクリアしていなければ 0）。読めなければ 0。</summary>
+    public static int GetLastClearedDay()
+    {
+        try
+        {
+            using var conn = new SqlConnection(DbConfig.SystemConn);
+            conn.Open();
+            using var cmd = new SqlCommand("SELECT ISNULL(MAX(DayNo), 0) FROM dbo.Progress WHERE Cleared = 1", conn);
+            return Convert.ToInt32(cmd.ExecuteScalar());
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
     /// <summary>起動時に始める日。最後にクリアした日の次（全部クリア済みなら最終日）。</summary>
     public static int GetStartDay()
     {

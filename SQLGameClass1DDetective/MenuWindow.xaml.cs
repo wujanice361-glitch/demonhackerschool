@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -9,14 +10,23 @@ namespace SQLGameClass1DDetective;
 public partial class MenuWindow : Window
 {
     private List<string> _hints = new();
-    public int HintsUsed => _shown.Count;
     private readonly ObservableCollection<string> _shown = new();
 
     public bool AllowClose { get; set; }
 
+    /// <summary>使ったヒントの数。</summary>
+    public int HintsUsed => _shown.Count;
+
+    /// <summary>「ゲームを最初からやり直す」が押された。</summary>
+    public event Action? ResetRequested;
+
+    /// <summary>「導入を見返す」が押された。</summary>
+    public event Action? IntroRequested;
+
     public MenuWindow()
     {
         InitializeComponent();
+        WindowHelper.FitToScreen(this);
         HintList.ItemsSource = _shown;
         VolumeSlider.Value = BgmPlayer.Volume;
         UpdateBgmUi();
@@ -64,6 +74,11 @@ public partial class MenuWindow : Window
         BgmToggle.Content = BgmPlayer.IsPlaying ? "⏸ 一時停止" : "▶ 再生";
     }
 
+    // ===== 導入・リセット =====
+    private void IntroButton_Click(object sender, RoutedEventArgs e) => IntroRequested?.Invoke();
+
+    private void ResetButton_Click(object sender, RoutedEventArgs e) => ResetRequested?.Invoke();
+
     // ===== 終了 =====
     private void ExitButton_Click(object sender, RoutedEventArgs e)
     {
@@ -71,7 +86,7 @@ public partial class MenuWindow : Window
                                 MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (r == MessageBoxResult.Yes)
         {
-            Application.Current.MainWindow?.Close();
+            Application.Current.MainWindow?.Close(); // MainWindow.OnClosing で子ウィンドウも閉じられる
         }
         else
         {
@@ -85,7 +100,7 @@ public partial class MenuWindow : Window
         if (!AllowClose)
         {
             e.Cancel = true;
-            Owner?.Activate();   // 先にメイン画面を前面にする
+            Owner?.Activate(); // 先にメイン画面を前面にする
             Hide();
         }
         base.OnClosing(e);

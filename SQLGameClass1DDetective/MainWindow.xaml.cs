@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -57,6 +58,10 @@ public partial class MainWindow : Window
         _notepad = new NotepadWindow { Owner = this };
         _menu = new MenuWindow { Owner = this };
 
+        // メニューからの「最初からやり直す」「導入を見返す」
+        _menu.ResetRequested += async () => { _menu.Hide(); await ResetGameAsync(); };
+        _menu.IntroRequested += () => { _menu.Hide(); ReviewIntro(); };
+
         await LoadDayAsync(ProgressStore.GetStartDay());
     }
 
@@ -82,11 +87,8 @@ public partial class MainWindow : Window
         SetClearedState(false);
 
         var info = CaseCatalog.Get(day);
-        DayText.Text = $"DAY {day}";
-        CaseTitle.Text = info.Title;
-        SituationText.Text = info.Situation;
-        ObjectiveText.Text = info.Objective;
-        _menu.SetHints(info.Hints);
+        ShowCaseTexts(info);
+        _menu.SetHints(info.Hints.Select(GameProfile.Apply).ToArray());
 
         AnswerBox.Clear();
         SubmitResult.Text = "";
@@ -100,6 +102,15 @@ public partial class MainWindow : Window
             _schemaTipShown = true;
             SchemaTip.IsOpen = true;
         }
+    }
+
+    // 出題の文章を画面に出す（{player} はプレイヤーの名前に置き換える）
+    private void ShowCaseTexts(CaseInfo info)
+    {
+        DayText.Text = $"DAY {info.Day}";
+        CaseTitle.Text = GameProfile.Apply(info.Title);
+        SituationText.Text = GameProfile.Apply(info.Situation);
+        OrderText.Text = GameProfile.Apply(info.Order);
     }
 
     // ===== 子ウィンドウの開閉 =====
@@ -158,7 +169,7 @@ public partial class MainWindow : Window
 
         if (!AnswerChecker.IsCorrect(_day, answer))
         {
-            SubmitResult.Text = $"教官:「うーん、その答えでは説明がつかないな。もう一度、記録を見直してみなさい。」（{_attempts}回目の提出）";
+            SubmitResult.Text = $"教官:「うーん、{GameProfile.Current.DisplayName}、その答えでは説明がつかないな。もう一度、記録を見直してみなさい。」（{_attempts}回目の提出）";
             return;
         }
 
@@ -227,6 +238,55 @@ public partial class MainWindow : Window
     }
 
     private async void ReviewButton_Click(object sender, RoutedEventArgs e) => await ShowClearDialogAsync();
+
+    // ===== 導入の見返し =====
+    private void ReviewIntro()
+    {
+        var edit = GameProfile.Current.Clone();
+        var win = new IntroWindow(edit) { Owner = this };
+        if (win.ShowDialog() == true)
+        {
+            GameProfile.Replace(edit);          // 名前や自己紹介の編集を保存
+            ShowCaseTexts(CaseCatalog.Get(_day)); // 名前が変わったので、出題の文章も更新
+        }
+    }
+
+    // ===== ゲーム全体のリセット =====
+    private async Task ResetGameAsync()
+    {
+        var r = MessageBox.Show(this,
+            "ゲーム全体をリセットして、最初からやり直しますか？\n\n" +
+            "消えるもの:\n" +
+            "・クリアの記録\n" +
+            "・メモの内容\n" +
+            "・入力した名前と、編集した自己紹介\n\n" +
+            "この操作は取り消せません。",
+            "リセットの確認", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (r != MessageBoxResult.Yes) return;
+
+        // 導入をやり直す。最後まで進んだときだけ、リセットを確定する（途中で閉じたら、何も消さない）
+        var fresh = GameProfile.CreateDefault();
+        var intro = new IntroWindow(fresh) { Owner = this };
+        if (intro.ShowDialog() != true) return;
+
+        try
+        {
+            await Task.Run(() => ProgressStore.ResetAll());
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "リセットに失敗しました。\n\n" + ex.Message, "エラー",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        MemoStore.Instance.Text = "";
+        MemoStore.Instance.Save();
+        GameProfile.Replace(fresh);
+
+        _schemaTipShown = false; // 1日目のチュートリアルの吹き出しを、もう一度出す
+        await LoadDayAsync(1);
+    }
 
     // ===== 経過時間 / 残り時間 =====
     private void UpdateTimer()
