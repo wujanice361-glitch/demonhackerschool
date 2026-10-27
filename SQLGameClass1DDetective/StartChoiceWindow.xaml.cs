@@ -16,10 +16,14 @@ public partial class StartChoiceWindow : Window
         var name = GameProfile.Current.PlayerName;
         var who = string.IsNullOrWhiteSpace(name) ? "" : $"「{name}」の";
 
+        var status = lastClearedDay > 0
+            ? $"DAY {lastClearedDay} までクリア済みです。"
+            : "まだクリアした日はありません。DAY 1 から始めます。";
+
         MessageText.Text =
-            $"{who}記録: DAY {lastClearedDay} までクリア済みです。\n\n" +
+            $"{who}記録があります。\n{status}\n\n" +
             "続きから始めますか？\n" +
-            "最初からやり直すと、クリアの記録・メモ・名前と自己紹介が消えます。";
+            "最初からやり直すと、クリアの記録・メモ・名前と自己紹介が消えて、導入からやり直します。";
     }
 
     private void ContinueButton_Click(object sender, RoutedEventArgs e)

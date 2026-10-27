@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -12,6 +13,9 @@ public static class DbConfig
 {
     public const string GameDb = "SchoolCase";          // プレイヤーが調べるDB（事件データ）
     public const string SystemDb = "SchoolCaseAnswer";  // 進行状況など（プレイヤーのSQLからは見えない）
+
+    /// <summary>プレイヤー自身の学生ID（全ての日で固定）。各日のSQLでは @PlayerId として使える。</summary>
+    public const int PlayerStudentId = 107;
 
     private const string Server = "(localdb)\\MSSQLLocalDB";
 
@@ -61,7 +65,13 @@ EXEC sp_executesql @sql;";
         }
     }
 
-    /// <summary>指定した日の事件データに入れ替える（前の日のデータは消える＝先の日のネタバレも見えない）。</summary>
+    /// <summary>
+    /// 指定した日の事件データに入れ替える（前の日のデータは消える＝先の日のネタバレも見えない）。
+    /// 各日のSQLでは、次のパラメーターが使える（値は SqlParameter で安全に渡される）:
+    ///   @PlayerId   … プレイヤーの学生ID（107）
+    ///   @PlayerName … プレイヤーの名前
+    ///   @PlayerNote … プレイヤーの自己紹介（名簿の備考用）
+    /// </summary>
     public static void LoadCase(int day)
     {
         using var conn = new SqlConnection(DbConfig.GameAdminConn);
@@ -70,19 +80,68 @@ EXEC sp_executesql @sql;";
         using (var drop = new SqlCommand(DropAllTablesSql, conn) { CommandTimeout = 60 })
             drop.ExecuteNonQuery();
 
-        RunScript(conn, ReadResource($"Cases.Day{day:00}.sql"));
+        RunScript(conn, ReadResource($"Cases.Day{day:00}.sql"), PlayerParameters());
+    }
+
+    /// <summary>
+    /// 導入の見返しで名前や自己紹介が変わったときに、学生名簿の自分の行だけを更新する。
+    /// （事件の途中経過やタブの入力は消さない。名簿がない日は何もしない）
+    /// </summary>
+    public static void RefreshPlayer()
+    {
+        try
+        {
+            using var conn = new SqlConnection(DbConfig.GameAdminConn);
+            conn.Open();
+
+            const string sql = @"
+IF OBJECT_ID(N'dbo.学生名簿') IS NOT NULL
+    UPDATE dbo.学生名簿 SET 名前 = @PlayerName, 備考 = @PlayerNote WHERE 学生ID = @PlayerId;";
+
+            using var cmd = new SqlCommand(sql, conn);
+            foreach (var p in PlayerParameters())
+                cmd.Parameters.AddWithValue(p.Key, p.Value);
+            cmd.ExecuteNonQuery();
+        }
+        catch
+        {
+            // 更新できなくても、ゲームは続ける（次に日を読み込んだときに反映される）
+        }
     }
 
     // ===== 内部処理 =====
 
+    private static Dictionary<string, object> PlayerParameters()
+    {
+        var profile = GameProfile.Current;
+
+        var intro = profile.IntroTextFor(IntroContent.PlayerKey);
+        var note = string.IsNullOrWhiteSpace(intro) ? "（記載なし）" : "自己紹介: " + intro;
+
+        return new Dictionary<string, object>
+        {
+            ["@PlayerId"] = DbConfig.PlayerStudentId,
+            ["@PlayerName"] = Truncate(profile.DisplayName, 50),
+            ["@PlayerNote"] = Truncate(note, 200),
+        };
+    }
+
+    private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
+
     /// <summary>「GO」で区切られたスクリプトを1バッチずつ実行する（SqlClientはGOを理解しないため）。</summary>
-    private static void RunScript(SqlConnection conn, string script)
+    private static void RunScript(SqlConnection conn, string script, IDictionary<string, object>? parameters = null)
     {
         var batches = Regex.Split(script, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
         foreach (var batch in batches)
         {
             if (string.IsNullOrWhiteSpace(batch)) continue;
+
             using var cmd = new SqlCommand(batch, conn) { CommandTimeout = 60 };
+            if (parameters != null)
+            {
+                foreach (var p in parameters)
+                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+            }
             cmd.ExecuteNonQuery();
         }
     }

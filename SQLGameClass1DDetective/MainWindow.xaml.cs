@@ -243,10 +243,11 @@ public partial class MainWindow : Window
     private void ReviewIntro()
     {
         var edit = GameProfile.Current.Clone();
-        var win = new IntroWindow(edit) { Owner = this };
+        var win = new IntroWindow(edit, "変更は保存されません。") { Owner = this };
         if (win.ShowDialog() == true)
         {
             GameProfile.Replace(edit);          // 名前や自己紹介の編集を保存
+            _ = Task.Run(() => DbInitializer.RefreshPlayer()); // 学生名簿の自分の行も更新
             ShowCaseTexts(CaseCatalog.Get(_day)); // 名前が変わったので、出題の文章も更新
         }
     }
@@ -266,12 +267,12 @@ public partial class MainWindow : Window
 
         // 導入をやり直す。最後まで進んだときだけ、リセットを確定する（途中で閉じたら、何も消さない）
         var fresh = GameProfile.CreateDefault();
-        var intro = new IntroWindow(fresh) { Owner = this };
+        var intro = new IntroWindow(fresh, "リセットは行われません。") { Owner = this };
         if (intro.ShowDialog() != true) return;
 
         try
         {
-            await Task.Run(() => ProgressStore.ResetAll());
+            await GameReset.CommitAsync(fresh);
         }
         catch (Exception ex)
         {
@@ -279,10 +280,6 @@ public partial class MainWindow : Window
                             MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
-
-        MemoStore.Instance.Text = "";
-        MemoStore.Instance.Save();
-        GameProfile.Replace(fresh);
 
         _schemaTipShown = false; // 1日目のチュートリアルの吹き出しを、もう一度出す
         await LoadDayAsync(1);

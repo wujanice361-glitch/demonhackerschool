@@ -53,10 +53,11 @@ public partial class App : Application
 
         splash.Close();
 
-        // 前回の記録（クリア済みの日）があるときだけ、「続きから」か「最初から」かを聞く。
-        // 記録がなければ聞かずに、そのまま始める。
+        // 前回の記録があるとき（導入を終えている、または、クリア済みの日がある）だけ、
+        // 「続きから」か「最初から」かを聞く。何もないまっさらな状態なら、聞かずに始める。
         GameProfile? fresh = null;
-        if (lastCleared > 0)
+        bool hasProgress = lastCleared > 0 || GameProfile.Current.IsIntroDone;
+        if (hasProgress)
         {
             var choice = new StartChoiceWindow(lastCleared);
             choice.ShowDialog();
