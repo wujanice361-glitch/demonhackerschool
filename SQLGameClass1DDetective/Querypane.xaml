@@ -43,6 +43,11 @@
                       BorderBrush="{StaticResource LineBrush}"
                       AutoGeneratingColumn="ResultGrid_AutoGeneratingColumn"/>
 
+            <!-- 結果が0行のときだけ出すメッセージ -->
+            <TextBlock x:Name="EmptyText" Visibility="Collapsed" TextWrapping="Wrap"
+                       VerticalAlignment="Top" Margin="16,52,16,0" LineHeight="22"
+                       Foreground="{StaticResource SubTextBrush}"/>
+
             <Border x:Name="ErrorPanel" Visibility="Collapsed"
                     Background="{StaticResource EditorBrush}"
                     BorderBrush="#7A3B3B" BorderThickness="1" Padding="16">

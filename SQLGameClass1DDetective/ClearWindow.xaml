@@ -25,7 +25,7 @@
                 Background="{StaticResource PanelBrush}">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel>
-                    <TextBlock Text="先生より" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="教官より" Style="{StaticResource SectionHeader}"/>
                     <TextBlock x:Name="ExplanationText" TextWrapping="Wrap" LineHeight="24"/>
                 </StackPanel>
             </ScrollViewer>

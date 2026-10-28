@@ -12,18 +12,18 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="380" MinWidth="300"/>
+            <ColumnDefinition Width="400" MinWidth="320"/>
             <ColumnDefinition Width="6"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- ================= 左: 上=出題 / 下=提出・メモ ================= -->
+        <!-- ================= 左: 上=出題 / 下=設問・サブクエスト・メモ ================= -->
         <Border Grid.Column="0" Background="{StaticResource PanelBrush}">
             <Grid Margin="16">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" MinHeight="140"/>
                     <RowDefinition Height="6"/>
-                    <RowDefinition Height="300" MinHeight="200"/>
+                    <RowDefinition Height="340" MinHeight="220"/>
                 </Grid.RowDefinitions>
 
                 <!-- 上: 出題 -->
@@ -59,24 +59,46 @@
                 <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch"
                               Background="{StaticResource LineBrush}"/>
 
-                <!-- 下: 提出 / メモ（タブで切り替え） -->
+                <!-- 下: 設問 / サブクエスト / メモ（タブで切り替え） -->
                 <TabControl Grid.Row="2" Margin="0,6,0,0">
-                    <TabItem Header="提出">
+
+                    <!-- 設問 -->
+                    <TabItem Header="設問">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel Margin="0,12,8,0">
-                                <TextBlock x:Name="SubmitHint" Text="調べて分かった結論を入力してください"
-                                           Foreground="{StaticResource SubTextBrush}" FontSize="12"
-                                           Margin="0,0,0,6"/>
-                                <TextBox x:Name="AnswerBox" Height="64" TextWrapping="Wrap"
-                                         VerticalScrollBarVisibility="Auto"/>
 
-                                <Button x:Name="SubmitButton" Content="この内容で提出する"
-                                        Style="{StaticResource AccentButton}"
-                                        Margin="0,10,0,0" Click="SubmitButton_Click"/>
-                                <TextBlock x:Name="SubmitResult" Margin="0,8,0,0" TextWrapping="Wrap"
-                                           Foreground="{StaticResource SubTextBrush}"/>
+                                <!-- 解いた設問 -->
+                                <ItemsControl x:Name="AnsweredList" Margin="0,0,0,8">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,4"
+                                                       Foreground="{StaticResource SubTextBrush}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
 
-                                <!-- クリア後だけ表示 -->
+                                <!-- いまの設問 -->
+                                <StackPanel x:Name="QuestionPanel">
+                                    <TextBlock x:Name="QuestionNumber" Style="{StaticResource SectionHeader}"/>
+                                    <TextBlock x:Name="QuestionText" TextWrapping="Wrap" LineHeight="22"/>
+                                    <TextBlock x:Name="AnswerFormat" Foreground="{StaticResource SubTextBrush}"
+                                               FontSize="12" Margin="0,8,0,6"/>
+                                    <TextBox x:Name="AnswerBox" Height="40" KeyDown="AnswerBox_KeyDown"/>
+
+                                    <DockPanel Margin="0,10,0,0">
+                                        <Button x:Name="HintButton" DockPanel.Dock="Right" Content="ヒント"
+                                                Margin="8,0,0,0" Click="HintButton_Click"/>
+                                        <Button x:Name="SubmitButton" Content="答える"
+                                                Style="{StaticResource AccentButton}" Click="SubmitButton_Click"/>
+                                    </DockPanel>
+
+                                    <TextBlock x:Name="HintText" Visibility="Collapsed" TextWrapping="Wrap"
+                                               Margin="0,8,0,0" Foreground="{StaticResource AccentBrush}"/>
+                                    <TextBlock x:Name="SubmitResult" Margin="0,8,0,0" TextWrapping="Wrap"
+                                               Foreground="{StaticResource SubTextBrush}"/>
+                                </StackPanel>
+
+                                <!-- 事件解決後だけ表示 -->
                                 <StackPanel x:Name="ClearedPanel" Visibility="Collapsed" Margin="0,10,0,0">
                                     <TextBlock Text="✔ 事件解決" Foreground="{StaticResource AccentBrush}"
                                                FontWeight="Bold" Margin="0,0,0,8"/>
@@ -91,6 +113,19 @@
                         </ScrollViewer>
                     </TabItem>
 
+                    <!-- サブクエスト -->
+                    <TabItem x:Name="SubQuestTab" Header="サブクエスト">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="0,12,8,0">
+                                <TextBlock Text="任意の課題です。解かなくても、事件は解決できます。"
+                                           Foreground="{StaticResource SubTextBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                <StackPanel x:Name="SubQuestList"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- メモ -->
                     <TabItem Header="メモ">
                         <Grid Margin="0,12,0,0">
                             <TextBox AcceptsReturn="True" TextWrapping="Wrap"
@@ -130,9 +165,9 @@
                 <Border Background="{StaticResource AccentBrush}" CornerRadius="6" Padding="14,10"
                         Margin="0,6,0,0" MaxWidth="280">
                     <StackPanel>
-                        <TextBlock Text="まずここをチェック！" FontWeight="Bold" Foreground="#1E1F26"/>
-                        <TextBlock TextWrapping="Wrap" Foreground="#1E1F26" Margin="0,4,0,8"
-                                   Text="ここから、テーブルの構造（どんな表があって、どんな列があるか）を見られます。捜査の前に確認しましょう。"/>
+                        <TextBlock x:Name="SchemaTipTitle" FontWeight="Bold" Foreground="#1E1F26"/>
+                        <TextBlock x:Name="SchemaTipBody" TextWrapping="Wrap" Foreground="#1E1F26"
+                                   Margin="0,4,0,8"/>
                         <Button Content="わかった" Click="SchemaTipClose_Click" Padding="10,3"
                                 HorizontalAlignment="Right"/>
                     </StackPanel>

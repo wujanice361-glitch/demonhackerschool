@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 
@@ -56,7 +57,8 @@ public static class QueryRunner
         using (var init = new SqlCommand("EXECUTE AS USER = 'player_reader' WITH NO REVERT;", conn))
             init.ExecuteNonQuery();
 
-        using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 5 };
+        // 日本語の文字列に N を付け忘れても、正しく比較されるようにする（表示している入力欄の中身は、変えない）
+        using var cmd = new SqlCommand(AddUnicodePrefix(sql), conn) { CommandTimeout = 5 };
         using var reader = cmd.ExecuteReader();
 
         var table = new DataTable();
@@ -81,6 +83,104 @@ public static class QueryRunner
         }
         return table;
     }
+
+    /// <summary>
+    /// 文字列リテラル 'abc' を、Unicode の N'abc' に直す（すでに N が付いているものは、そのまま）。
+    /// プレイヤーが N を付け忘れても、日本語がデータベースの文字の設定に左右されず、正しく比較されるようにする。
+    /// コメント（-- と /* */）の中、[角括弧] や "二重引用符" で囲んだ名前は、触らない。
+    /// </summary>
+    internal static string AddUnicodePrefix(string sql)
+    {
+        var sb = new StringBuilder(sql.Length + 8);
+        int i = 0;
+        int n = sql.Length;
+
+        while (i < n)
+        {
+            char c = sql[i];
+
+            // 行コメント
+            if (c == '-' && i + 1 < n && sql[i + 1] == '-')
+            {
+                int end = sql.IndexOf('\n', i);
+                if (end < 0) end = n;
+                sb.Append(sql, i, end - i);
+                i = end;
+                continue;
+            }
+
+            // ブロックコメント
+            if (c == '/' && i + 1 < n && sql[i + 1] == '*')
+            {
+                int end = sql.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                end = end < 0 ? n : end + 2;
+                sb.Append(sql, i, end - i);
+                i = end;
+                continue;
+            }
+
+            // [角括弧] や "二重引用符" で囲んだ名前
+            if (c == '[' || c == '"')
+            {
+                char close = c == '[' ? ']' : '"';
+                int end = sql.IndexOf(close, i + 1);
+                end = end < 0 ? n : end + 1;
+                sb.Append(sql, i, end - i);
+                i = end;
+                continue;
+            }
+
+            // 文字列リテラル
+            if (c == '\'')
+            {
+                bool standaloneN = false;
+                bool prevIsIdentifier = false;
+                if (sb.Length > 0)
+                {
+                    char p = sb[sb.Length - 1];
+                    prevIsIdentifier = IsIdentifierChar(p);
+                    // 直前が、単独の N（単語の一部ではない N）なら、すでに Unicode リテラル
+                    standaloneN = (p == 'N' || p == 'n')
+                                  && (sb.Length == 1 || !IsIdentifierChar(sb[sb.Length - 2]));
+                }
+
+                if (!standaloneN)
+                {
+                    if (prevIsIdentifier) sb.Append(' '); // WHEN'x' のように、直前の単語とくっついているとき
+                    sb.Append('N');
+                }
+
+                // リテラルの終わりまで、そのまま写す（'' は、引用符1つぶんの文字）
+                sb.Append('\'');
+                i++;
+                while (i < n)
+                {
+                    if (sql[i] == '\'')
+                    {
+                        if (i + 1 < n && sql[i + 1] == '\'')
+                        {
+                            sb.Append("\'\'");
+                            i += 2;
+                            continue;
+                        }
+                        sb.Append('\'');
+                        i++;
+                        break;
+                    }
+                    sb.Append(sql[i]);
+                    i++;
+                }
+                continue;
+            }
+
+            sb.Append(c);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    private static bool IsIdentifierChar(char ch) =>
+        char.IsLetterOrDigit(ch) || ch == '_' || ch == '@' || ch == '#' || ch == '$';
 
     /// <summary>SQL Serverのエラー番号から、分かりやすい見出しを決める。</summary>
     private static string Classify(SqlException ex) => ex.Number switch

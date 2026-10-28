@@ -10,6 +10,9 @@ namespace SQLGameClass1DDetective;
 /// <summary>SQL入力と結果表示の1セット。タブの数だけ並べて使う。</summary>
 public partial class QueryPane : UserControl
 {
+    /// <summary>SQLが成功して、結果を表示した（引数は、実行したSQL）。</summary>
+    public event Action<string>? QuerySucceeded;
+
     public QueryPane()
     {
         InitializeComponent();
@@ -22,6 +25,7 @@ public partial class QueryPane : UserControl
         ResultGrid.ItemsSource = null;
         ErrorPanel.Visibility = Visibility.Collapsed;
         ResultGrid.Visibility = Visibility.Visible;
+        EmptyText.Visibility = Visibility.Collapsed;
         StatusText.Text = "SQLを入力して実行してください。";
     }
 
@@ -66,15 +70,27 @@ public partial class QueryPane : UserControl
                 ResultGrid.Visibility = Visibility.Visible;
                 ResultGrid.ItemsSource = table.DefaultView;
 
+                if (table.Rows.Count == 0)
+                {
+                    EmptyText.Text = BuildEmptyMessage(sql);
+                    EmptyText.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    EmptyText.Visibility = Visibility.Collapsed;
+                }
+
                 var note = table.Rows.Count >= QueryRunner.MaxRows
                     ? $"  ※先頭{QueryRunner.MaxRows}行のみ表示" : "";
                 StatusText.Text = $"{table.Rows.Count} 行  ({sw.ElapsedMilliseconds} ms){note}";
+                QuerySucceeded?.Invoke(sql);
             }
             else
             {
                 ResultGrid.ItemsSource = null;
                 ResultGrid.Visibility = Visibility.Collapsed;
                 ErrorPanel.Visibility = Visibility.Visible;
+                EmptyText.Visibility = Visibility.Collapsed;
                 ErrorTitle.Text = result.ErrorTitle;
                 ErrorDetail.Text = result.ErrorDetail;
                 StatusText.Text = "エラー";
@@ -84,6 +100,20 @@ public partial class QueryPane : UserControl
         {
             RunButton.IsEnabled = true;
         }
+    }
+
+    // 結果が0行のときのメッセージ。「=」に「%」を使っているときは、LIKE のヒントを添える
+    private static string BuildEmptyMessage(string sql)
+    {
+        var message = "一致する行はありませんでした。条件を見直してみよう。";
+
+        var upper = sql.ToUpperInvariant();
+        if (sql.Contains('%') && upper.Contains('=') && !upper.Contains("LIKE"))
+        {
+            message += "\n\nヒント: 「=」は、完全に同じときだけ一致します。" +
+                       "文字の一部を含む行を探すときは、LIKE '%…%' を使います。";
+        }
+        return message;
     }
 
     // 列名の「_」はWPFでアクセスキー扱いされて消えるので、2つにして表示させる

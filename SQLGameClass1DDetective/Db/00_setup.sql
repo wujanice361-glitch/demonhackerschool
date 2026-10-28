@@ -33,6 +33,11 @@ CREATE TABLE dbo.Progress (
     Cleared        BIT          NOT NULL DEFAULT 0,
     ClearedAt      DATETIME2(0) NULL,
     ElapsedSeconds INT          NULL,
-    HintsUsed      INT          NOT NULL DEFAULT 0
+    HintsUsed      INT          NOT NULL DEFAULT 0,
+    SubQuestsDone  INT          NULL
 );
+GO
+-- 以前のバージョンで作られたテーブルには、列を足す
+IF COL_LENGTH('dbo.Progress', 'SubQuestsDone') IS NULL
+    ALTER TABLE dbo.Progress ADD SubQuestsDone INT NULL;
 GO

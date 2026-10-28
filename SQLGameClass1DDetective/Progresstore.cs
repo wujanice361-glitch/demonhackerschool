@@ -6,17 +6,23 @@ namespace SQLGameClass1DDetective;
 /// <summary>クリア状況の保存と読み込み（進行管理DB。プレイヤーのSQLからは見えない）。</summary>
 public static class ProgressStore
 {
-    /// <summary>クリアを記録する。すでにクリア済みの場合は、より良い記録のときだけ更新する。</summary>
-    public static void MarkCleared(int day, int elapsedSeconds, int hintsUsed)
+    /// <summary>
+    /// クリアを記録する。すでにクリア済みの場合は、より良いタイムのときだけ時間を更新する。
+    /// サブクエストの達成数は、多いほうを残す。
+    /// </summary>
+    public static void MarkCleared(int day, int elapsedSeconds, int hintsUsed, int subQuestsDone = 0)
     {
         const string sql = @"
 MERGE dbo.Progress AS t
 USING (SELECT @day AS DayNo) AS s ON t.DayNo = s.DayNo
 WHEN MATCHED AND (t.ElapsedSeconds IS NULL OR @sec < t.ElapsedSeconds) THEN
-    UPDATE SET Cleared = 1, ClearedAt = SYSDATETIME(), ElapsedSeconds = @sec, HintsUsed = @hints
+    UPDATE SET Cleared = 1, ClearedAt = SYSDATETIME(), ElapsedSeconds = @sec, HintsUsed = @hints,
+               SubQuestsDone = CASE WHEN ISNULL(t.SubQuestsDone, 0) < @sq THEN @sq ELSE t.SubQuestsDone END
+WHEN MATCHED THEN
+    UPDATE SET SubQuestsDone = CASE WHEN ISNULL(t.SubQuestsDone, 0) < @sq THEN @sq ELSE t.SubQuestsDone END
 WHEN NOT MATCHED THEN
-    INSERT (DayNo, Cleared, ClearedAt, ElapsedSeconds, HintsUsed)
-    VALUES (@day, 1, SYSDATETIME(), @sec, @hints);";
+    INSERT (DayNo, Cleared, ClearedAt, ElapsedSeconds, HintsUsed, SubQuestsDone)
+    VALUES (@day, 1, SYSDATETIME(), @sec, @hints, @sq);";
 
         using var conn = new SqlConnection(DbConfig.SystemConn);
         conn.Open();
@@ -24,6 +30,7 @@ WHEN NOT MATCHED THEN
         cmd.Parameters.AddWithValue("@day", day);
         cmd.Parameters.AddWithValue("@sec", elapsedSeconds);
         cmd.Parameters.AddWithValue("@hints", hintsUsed);
+        cmd.Parameters.AddWithValue("@sq", subQuestsDone);
         cmd.ExecuteNonQuery();
     }
 

@@ -9,12 +9,15 @@ public partial class ClearWindow : Window
     /// <summary>プレイヤーの選択。×で閉じた場合は Stay（その場に残る）。</summary>
     public ClearChoice Choice { get; private set; } = ClearChoice.Stay;
 
-    public ClearWindow(CaseInfo info, string stats, bool hasNext)
+    public ClearWindow(CaseInfo info, string stats, bool hasNext, string extraComment = "")
     {
         InitializeComponent();
 
         TitleText.Text = $"DAY {info.Day}  {info.Title}";
-        ExplanationText.Text = info.Explanation;
+        var text = GameProfile.Apply(info.Explanation);
+        if (!string.IsNullOrWhiteSpace(extraComment))
+            text += "\n\n" + GameProfile.Apply(extraComment);
+        ExplanationText.Text = text;
         StatsText.Text = stats;
 
         if (!hasNext)
